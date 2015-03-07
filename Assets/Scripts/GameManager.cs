@@ -4,11 +4,12 @@ using System.Collections.Generic;
 
 public class GameManager : MonoBehaviour {
 
-    public Transform player1Spawn;
-    public Transform player2Spawn;
+    public static int playersTurn = -1;
     public static GameManager instance;
-
-    private Queue<object[]> movementQueue = new Queue<object[]>();
+    
+    private static PhotonView ScenePhotonView;
+    private int player1Id = -1;
+    private int player2Id = -1;
 
     void Awake()
     {
@@ -16,51 +17,92 @@ public class GameManager : MonoBehaviour {
             instance = this;
     }
 
-
 	void Start () 
     {
-        PhotonNetwork.ConnectUsingSettings("0.0.1");
-        //log level.. for debug purposes..
-        PhotonNetwork.logLevel = PhotonLogLevel.Full;
+        ScenePhotonView = this.GetComponent<PhotonView>();
 	}
 
-    void OnGUI()
+    public void OnJoinedRoomed()
     {
-        GUILayout.Label(PhotonNetwork.connectionStateDetailed.ToString());
-    }
-
-    void OnJoinedLobby()
-    {
-        PhotonNetwork.JoinRandomRoom();
-    }
-
-    void OnPhotonRandomJoinFailed()
-    {
-        Debug.Log("no room to join, creating new room..");
-
-        PhotonNetwork.CreateRoom(null);
-    }
-
-    void OnJoinedRoom()
-    {
+        Debug.Log("GameManager OnJoinedRoom");
         if (PhotonNetwork.playerList.Length == 1)
         {
-            // player 1
-            GameObject player = PhotonNetwork.Instantiate("Player", player1Spawn.position, player1Spawn.rotation, 0);
-            PlayerController controller = player.GetComponent<PlayerController>();
-            controller.isControllable = true;
+            playersTurn = PhotonNetwork.player.ID;
+            player1Id = PhotonNetwork.player.ID;
         }
-        else if (PhotonNetwork.playerList.Length == 2)
+        Debug.Log("OnJoinedRoomed: " + playersTurn);
+    }
+
+    public void OnPhotonPlayerConnected(PhotonPlayer player)
+    {
+        Debug.Log("OnPhotonPlayerConnected: " + player);
+        // when new players join, we send "who's it" to let them know
+        // only one player will do this: the "master"
+
+        if (PhotonNetwork.isMasterClient)
         {
-            // player 2
-            GameObject player = PhotonNetwork.Instantiate("Player", player2Spawn.position, player2Spawn.rotation, 0);
-            PlayerController controller = player.GetComponent<PlayerController>();
-            controller.isControllable = true;
+            SetPlayer(1, player1Id);
+            SetPlayer(2, player.ID);
+            SetPlayerTurn(player1Id);
+        }
+    }
+
+    [RPC]
+    public void UpdatePlayerTurn(int playerId)
+    {
+        Debug.Log("UpdatePlayerTurn: " + playerId);
+        playersTurn = playerId;
+    }
+    [RPC]
+    public void UpdatePlayer(int playerNum, int playerId)
+    {
+        Debug.Log("UpdatePlayer " + playerNum + ": " + playerId);
+        if (playerNum == 1)
+            player1Id = playerId;
+        else
+            player2Id = playerId;
+    }
+
+    public static void SetPlayerTurn(int playerId)
+    {
+        Debug.Log("SetPlayerTurn: " + playerId);
+        ScenePhotonView.RPC("UpdatePlayerTurn", PhotonTargets.All, playerId);
+    }
+
+    public static void SetPlayer(int playerNum, int playerId)
+    {
+        Debug.Log("SetPlayer " + playerNum + ": " + playerId);
+        ScenePhotonView.RPC("UpdatePlayer", PhotonTargets.All, playerNum, playerId);
+    }
+
+    public void OnPhotonPlayerDisconnected(PhotonPlayer player)
+    {
+        Debug.Log("OnPhotonPlayerDisconnected: " + player);
+
+        if (PhotonNetwork.isMasterClient)
+        {
+            if (player.ID == playersTurn)
+            {
+                // if the player who left was "it", the "master" is the new "it"
+                SetPlayerTurn(PhotonNetwork.player.ID);
+            }
+        }
+    }
+
+    public void OnMasterClientSwitched()
+    {
+        Debug.Log("OnMasterClientSwitched");
+    }
+
+    public void EndPlayerTurn(int playerId)
+    {
+        if (playerId == player1Id)
+        {
+            SetPlayerTurn(player2Id);
         }
         else
         {
-            Debug.Log("No more player positions allowed.");
+            SetPlayerTurn(player1Id);
         }
-        
     }
 }

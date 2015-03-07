@@ -5,12 +5,12 @@ using System.Collections;
 public class PlayerController : MonoBehaviour 
 {
     public GameObject turret;
-    public GameObject projectile;
-    public Transform launchPoint;
-    public bool isPlayersTurn = true;
+    public bool isPlayersTurn = false;
     public bool isControllable = false;
-    public float turningSpeed = 5.0f;
+
     public int playerId = 0;
+
+    public float turningSpeed = 5.0f;
     public float rotationSmoothing = 5.0f;
 
     private float zEulerAngle;
@@ -19,8 +19,6 @@ public class PlayerController : MonoBehaviour
     private float maxZAngle = 90.9f;
     private float minZAngle = 0.0f;
     private float yFlipper = 1.0f;
-
-    private bool doLaunch = false;
 
 	void Start () 
     {
@@ -35,6 +33,8 @@ public class PlayerController : MonoBehaviour
 	
 	void Update () 
     {
+        isPlayersTurn = (PhotonNetwork.player.ID == GameManager.playersTurn);
+
         if (isPlayersTurn && isControllable)
         {
             //check for player input
@@ -45,39 +45,6 @@ public class PlayerController : MonoBehaviour
                 //rotate the turret
                 turret.transform.rotation = Quaternion.Lerp(turret.transform.rotation, Quaternion.Euler(xEulerAngle, yEulerAngle, zEulerAngle), rotationSmoothing);
             }
-            
-            if (Input.GetButton("Fire1"))
-            {
-                //GameManager.instance.LaunchProjectile(playerId);
-                //isPlayersTurn = false;
-            }
         }
-
-        if (doLaunch)
-            LaunchMe();
 	}
-
-    public void ReadyForLaunch()
-    {
-        doLaunch = true;
-    }
-
-    public void SetAngle(float angle)
-    {
-        zEulerAngle = angle;
-    }
-
-    void LaunchMe()
-    {
-        //fire a projectile
-        GameObject proj = Instantiate(projectile, launchPoint.position, launchPoint.rotation) as GameObject;
-        ProjectileController pCtrllr = proj.GetComponent<ProjectileController>();
-        pCtrllr.OnDestroyed += OnProjectileDestroyed;
-        doLaunch = false;
-    }
-
-    void OnProjectileDestroyed()
-    {
-        isPlayersTurn = true;
-    }
 }

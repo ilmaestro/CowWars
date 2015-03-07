@@ -4,7 +4,6 @@ using System.Collections;
 public class NetworkPlayer : Photon.MonoBehaviour {
 
     public Transform turret;
-
     private Quaternion correctRotation;
 
     void Update()
